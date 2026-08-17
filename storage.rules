@@ -1,0 +1,12 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Custom authentication is handled by Vercel, not Firebase Auth.
+    // Keep Storage inaccessible from the browser until the chosen storage
+    // architecture and signed-access mechanism are finalized.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

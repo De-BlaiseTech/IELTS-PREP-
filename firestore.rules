@@ -1,0 +1,15 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // The application uses custom authentication through Vercel + Resend.
+    // Browser requests therefore do NOT have Firebase Auth identity.
+    // Protected Firestore access is performed server-side using Firebase Admin SDK.
+    // Deny all direct client access by default.
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
