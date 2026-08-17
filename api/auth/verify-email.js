@@ -1,6 +1,6 @@
 import { adminDb } from "../_lib/firebase-admin.js";
 import { FieldValue } from "firebase-admin/firestore";
-import { hashSecret, hashPassword, randomToken, verifyPassword } from "../_lib/security.js";
+import { hashSecret } from "../_lib/security.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({message:"Method not allowed."});

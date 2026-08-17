@@ -1,4 +1,4 @@
-import { register as apiRegister, resendVerification, login as apiLogin } from "./auth-api.js";
+import { register as apiRegister, resendVerification, login as apiLogin, logout as apiLogout, forgotPassword } from "./auth-api.js";
 const state={
  page:"dashboard", user:null, target:Number(localStorage.getItem("ielts-target")||7.5),
  attempts:JSON.parse(localStorage.getItem("ielts-attempts")||"[]"), answers:{}, submitted:false,
@@ -23,7 +23,7 @@ function overall(vals){let a=vals.filter(Boolean);return a.length?Math.round(a.r
 function layout(inner){
  return `<div class="shell"><aside class="sidebar" id="side"><div class="brand"><div class="logo">I</div><div><b>IELTS Prep</b><small>CBT Practice</small></div></div><div class="nav">
  ${[['dashboard','⌂ Dashboard'],['practice','▶ Practice'],['mock','▣ Mock Tests'],['listening','🎧 Listening'],['reading','📖 Reading'],['writing','✍ Writing'],['speaking','🎤 Speaking'],['progress','▥ Progress'],['profile','◉ Profile']].map(x=>`<button class="${state.page===x[0]?'active':''}" onclick="nav('${x[0]}')">${x[1]}</button>`).join("")}
- </div><button class="signout" onclick="nav('login')">↪ Sign out</button></aside><div class="overlay hidden" id="overlay" onclick="toggleMenu()"></div><main class="main"><header class="top"><button class="mobile-menu" onclick="toggleMenu()">☰</button><b>IELTS Practice Centre</b><div class="avatar">${(state.user||"S").slice(0,1).toUpperCase()}</div></header><div class="content">${inner}</div></main></div>`
+ </div><button class="signout" onclick="doLogout()">↪ Sign out</button></aside><div class="overlay hidden" id="overlay" onclick="toggleMenu()"></div><main class="main"><header class="top"><button class="mobile-menu" onclick="toggleMenu()">☰</button><b>IELTS Practice Centre</b><div class="avatar">${(state.user||"S").slice(0,1).toUpperCase()}</div></header><div class="content">${inner}</div></main></div>`
 }
 function render(){
  if(!state.user && state.page!=="login" && state.page!=="register"){state.page="login"}
@@ -59,7 +59,7 @@ function exam(){let stages=["Listening","Reading","Writing"];if(state.stage>=3){
 function nextStage(){if(state.stage===0){let qs=questions.filter(q=>q.skill==='listening');let c=qs.filter(q=>String(state.answers[q.id]||'').toLowerCase()===q.answer.toLowerCase()).length;state.examListening=band('listening',c,10)}state.stage++;render()}
 function finishExam(){state.examResult={listening:state.examListening||7,reading:6.5,overall:overall([state.examListening||7,6.5,6.5])};addAttempt({skill:"mock test",overall:state.examResult.overall});state.stage=3;render()}
 
-function login(){return `<div class="auth"><div class="auth-card"><div class="auth-brand"><div class="logo">I</div><h1>IELTS Prep</h1><p>Practice with purpose. Prepare with confidence.</p></div><div class="form"><label>Email<input id="email" type="email" placeholder="you@example.com"></label><label>Password<input id="pass" type="password" placeholder="••••••••"></label><div id="err"></div><button class="btn primary" onclick="doLogin()">Sign in</button></div><p class="center muted"><a href="#" onclick="showResend()">Didn't receive your verification email? Resend link</a></p><p class="center muted">New here? <a href="#" onclick="state.page='register';render()">Create an account</a></p></div></div>`}
+function login(){return `<div class="auth"><div class="auth-card"><div class="auth-brand"><div class="logo">I</div><h1>IELTS Prep</h1><p>Practice with purpose. Prepare with confidence.</p></div><div class="form"><label>Email<input id="email" type="email" placeholder="you@example.com"></label><label>Password<input id="pass" type="password" placeholder="••••••••"></label><div id="err"></div><button class="btn primary" onclick="doLogin()">Sign in</button></div><p class="center muted"><a href="#" onclick="showResend()">Didn't receive your verification email? Resend link</a></p><p class="center muted"><a href="#" onclick="showForgotPassword()">Forgot your password?</a></p><p class="center muted">New here? <a href="#" onclick="state.page='register';render()">Create an account</a></p></div></div>`}
 
 function register(){return `<div class="auth"><div class="auth-card"><div class="auth-brand"><div class="logo">I</div><h1>Create your account</h1><p>Start your IELTS preparation journey.</p></div><div class="form"><label>Name<input id="name" placeholder="Your name"></label><label>Email<input id="email" type="email" placeholder="you@example.com"></label><label>Password<input id="pass" type="password" placeholder="••••••••"></label><div id="err"></div><button class="btn primary" onclick="doRegister()">Create account</button></div><p class="center muted">Already have an account? <a href="#" onclick="state.page='login';render()">Sign in</a></p></div></div>`}
 
@@ -72,6 +72,25 @@ async function showResend(){
   }catch(e){
     alert(e.message || "Unable to resend verification email.");
   }
+}
+
+async function showForgotPassword(){
+  const email=prompt("Enter the email address for your IELTS Prep CBT account:");
+  if(!email) return;
+  try{
+    await forgotPassword(email.trim());
+    alert("If an account exists for that email, password-reset instructions have been sent.");
+  }catch(e){
+    alert(e.message||"Unable to process the password-reset request.");
+  }
+}
+
+async function doLogout(){
+  try{ await apiLogout(); }catch(e){}
+  state.user=null;
+  localStorage.removeItem("ielts-user");
+  state.page="login";
+  render();
 }
 
 async function doLogin(){
@@ -99,8 +118,8 @@ async function doRegister(){
   const name=document.getElementById("name").value.trim();
   const email=document.getElementById("email").value.trim();
   const password=document.getElementById("pass").value;
-  if(!name||!email||password.length<6){
-    document.getElementById("err").innerHTML='<div class="error">Enter your name, email and a password of at least 6 characters.</div>';
+  if(!name||!email||password.length<8){
+    document.getElementById("err").innerHTML='<div class="error">Enter your name, email and a password of at least 8 characters.</div>';
     return;
   }
   try{
@@ -113,7 +132,7 @@ async function doRegister(){
 
 // SPCK preview uses inline onclick handlers. Expose the required module values/functions.
 Object.assign(window, {
-  state, render, nav, toggleMenu, showResend, doLogin, doRegister,
+  state, render, nav, toggleMenu, showResend, showForgotPassword, doLogin, doRegister, doLogout,
   nextStage, finishExam, submitSkill, submitWriting, toggleRecord
 });
 state.user=localStorage.getItem("ielts-user")||null;render();

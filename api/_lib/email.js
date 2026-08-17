@@ -5,7 +5,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export async function sendVerificationEmail({ email, name, token }) {
   const base = process.env.APP_BASE_URL;
   if (!base) throw new Error("APP_BASE_URL is not configured.");
-  const url = `${base.replace(/\/$/, "")}/verify-email.html?token=${encodeURIComponent(token)}`;
+  const url = `${base.replace(/\/$/, "")}/verify-email?token=${encodeURIComponent(token)}`;
 
   return resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL,
@@ -25,7 +25,7 @@ export async function sendVerificationEmail({ email, name, token }) {
 export async function sendResetEmail({ email, name, token }) {
   const base = process.env.APP_BASE_URL;
   if (!base) throw new Error("APP_BASE_URL is not configured.");
-  const url = `${base.replace(/\/$/, "")}/reset-password.html?token=${encodeURIComponent(token)}`;
+  const url = `${base.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
 
   return resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL,
