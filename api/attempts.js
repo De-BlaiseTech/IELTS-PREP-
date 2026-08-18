@@ -1,6 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore';
-import { adminDb } from './_lib/firebase-admin.js';
-import { requireSession } from './_lib/session.js';
+import { adminDb } from '../lib/server/firebase-admin.js';
+import { requireSession } from '../lib/server/session.js';
 
 const normalize = (v) => String(v ?? '').trim().toLowerCase();
 

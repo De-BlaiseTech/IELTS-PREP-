@@ -1,4 +1,4 @@
-import { questionBankTests, questionBankQuestions, writingTasks, speakingPrompts } from '../src/data/questionBank.js';
+import { questionBankTests, questionBankQuestions, writingTasks, speakingPrompts } from '../content/question-bank.js';
 const errors=[];
 const allowedSkills=new Set(['listening','reading']);
 const allowedTypes=new Set(['multiple_choice','true_false_not_given','yes_no_not_given','matching_headings','matching_information','matching_features','matching_sentence_endings','sentence_completion','summary_completion','note_completion','table_completion','flow_chart_completion','diagram_label_completion','short_answer']);

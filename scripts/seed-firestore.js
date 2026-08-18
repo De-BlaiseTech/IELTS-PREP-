@@ -1,6 +1,6 @@
 import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { questionBankTests, questionBankQuestions, writingTasks, speakingPrompts } from "../src/data/questionBank.js";
+import { questionBankTests, questionBankQuestions, writingTasks, speakingPrompts } from "../content/question-bank.js";
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 if (!raw) {

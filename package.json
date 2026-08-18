@@ -1,8 +1,12 @@
 {
   "name": "ielts-prep-cbt",
+  "description": "IELTS Prep CBT - practice platform with Firestore-backed content, Vercel serverless auth, and AI speaking evaluation.",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=18.17"
+  },
   "dependencies": {
     "firebase-admin": "^13.5.0"
   },

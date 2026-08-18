@@ -16,21 +16,21 @@ async function post(path, body) {
 }
 
 export const register = (name,email,password) =>
-  post("/api/auth/register",{name,email,password});
+  post("/api/auth",{action:"register",name,email,password});
 
 export const resendVerification = (email) =>
-  post("/api/auth/resend-verification",{email});
+  post("/api/auth",{action:"resendVerification",email});
 
 export const login = (email,password) =>
-  post("/api/auth/login",{email,password});
+  post("/api/auth",{action:"login",email,password});
 
-export const logout = () => post("/api/auth/logout",{});
+export const logout = () => post("/api/auth",{action:"logout"});
 
 export const forgotPassword = (email) =>
-  post("/api/auth/forgot-password",{email});
+  post("/api/auth",{action:"forgotPassword",email});
 
 export const resetPassword = (token,password) =>
-  post("/api/auth/reset-password",{token,password});
+  post("/api/auth",{action:"resetPassword",token,password});
 
 export const verifyEmail = (token) =>
-  post("/api/auth/verify-email",{token});
+  post("/api/auth",{action:"verifyEmail",token});
