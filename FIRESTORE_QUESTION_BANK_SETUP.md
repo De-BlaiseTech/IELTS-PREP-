@@ -57,3 +57,15 @@ The script uses Firestore batches and writes no Firebase credentials into source
 Do not put the Firebase Admin service-account JSON inside the React frontend or commit it to Git/GitLab.
 
 After seeding, the application reads published content through the Vercel `/api/content` endpoint. The local `demo.js` content remains only as a fallback when the API is unavailable.
+
+## Production AI Speaking setup
+
+Add these Vercel environment variables:
+
+- `OPENAI_API_KEY` — server-side only. Never put this in frontend code or GitHub.
+- `OPENAI_EVAL_MODEL` — optional; defaults to `gpt-5.6`.
+- `OPENAI_TRANSCRIBE_MODEL` — optional; defaults to `gpt-4o-mini-transcribe`.
+
+The Speaking page posts a short recording to `/api/speaking/evaluate`. The Vercel function transcribes the response and evaluates it against the four IELTS Speaking criteria, then saves the report in `speaking_evaluations`.
+
+The current evaluator is deliberately labelled an **AI practice estimate**. It is not an official IELTS score, and pronunciation confidence is limited until an acoustic pronunciation layer is added.
