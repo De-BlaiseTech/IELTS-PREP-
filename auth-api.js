@@ -1,5 +1,5 @@
 // Custom authentication API client.
-// Resend API keys and Firebase Admin credentials stay on Vercel only.
+// Brevo API keys and Firebase Admin credentials stay on Vercel only.
 
 export const AUTH_API_BASE = "";
 

@@ -1,6 +1,6 @@
 // IELTS Prep CBT — Firebase web initialization
 // Firebase Authentication is intentionally NOT used.
-// Custom authentication will be handled by our backend + Resend.
+// Custom authentication is handled by our Vercel backend; Brevo sends transactional email.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";

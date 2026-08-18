@@ -30,7 +30,8 @@ export default async function handler(req, res) {
     passwordHash: hashPassword(password),
     verificationTokenHash: hashSecret(token),
     verificationExpiresAt: new Date(Date.now() + 30 * 60 * 1000),
-    createdAt: FieldValue.serverTimestamp()
+    createdAt: FieldValue.serverTimestamp(),
+    verificationSentAt: new Date()
   });
   await batch.commit();
 
