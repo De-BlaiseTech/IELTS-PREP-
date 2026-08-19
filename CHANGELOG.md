@@ -1,3 +1,15 @@
+# Production 3.0 — IELTS Content, Mobile UX and Session Security
+
+- Expanded the bundled bank to 2,080 original IELTS-style objective questions (1,040 Listening + 1,040 Reading), 208 Writing tasks and 312 Speaking prompt sets.
+- Added 26 complete practice tests with four Listening sections and three Reading passages.
+- Added authenticated xAI TTS endpoint for Listening audio, using server-side `XAI_API_KEY`.
+- Added one-time mobile Firestore seeder at `/admin-seed.html`.
+- Replaced the mobile sidebar behavior with a real navigation dropdown.
+- Changed authentication UI state to session-only and invalidate the server session on page leave; returning to the site requires a fresh login.
+- Reduced server session lifetime to 30 minutes.
+- Kept the Grok live Speaking examiner and normal Speaking/Writing evaluation.
+- Added global loading feedback to network operations.
+
 # Changelog
 
 ## Reorganization pass

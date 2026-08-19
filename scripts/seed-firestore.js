@@ -29,7 +29,7 @@ async function batchUpsert(collection, items) {
       batch.set(db.collection(collection).doc(id), {
         ...data,
         published: data.published !== false,
-        questionBankVersion: 3,
+        questionBankVersion: 4,
         updatedAt: FieldValue.serverTimestamp()
       }, { merge: true });
     }

@@ -53,7 +53,7 @@ async function loadFirestoreContent(){
   }catch(e){contentReady=false; contentError=e.message||"Unable to load Firestore question bank.";} render();
 }
 function save(){localStorage.setItem("ielts-attempts",JSON.stringify(state.attempts))}
-function nav(p){state.page=p;state.submitted=false;state.answers={};state.lastWritingResult=null;state.lastSpeakingResult=null;render()}
+function nav(p){state.page=p;state.submitted=false;state.answers={};state.lastWritingResult=null;state.lastSpeakingResult=null;closeMenu();render()}
 function addAttempt(a){state.attempts.unshift({...a,date:new Date().toLocaleDateString()});save()}
 function overall(vals){let a=vals.filter(v=>typeof v==="number"&&v>0);return a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length*2)/2:0}
 function latestSkillBand(skill){const found=state.attempts.find(a=>String(a.skill||"").toLowerCase()===skill);return typeof found?.overall==="number"&&found.overall>0?found.overall:null}
@@ -72,15 +72,55 @@ async function fetchAttempts(){
     }
   }catch(e){/* keep local cache on failure */}
 }
-function layout(inner){return `<div class="shell"><aside class="sidebar" id="side"><div class="brand"><div class="logo">I</div><div><b>IELTS Prep</b><small>CBT Practice</small></div></div><div class="nav">${[['dashboard','⌂ Dashboard'],['practice','▶ Practice'],['mock','▣ Mock Tests'],['listening','🎧 Listening'],['reading','📖 Reading'],['writing','✍ Writing'],['speaking','🎤 Speaking'],['progress','▥ Progress'],['profile','◉ Profile']].map(x=>`<button class="${state.page===x[0]?'active':''}" onclick="nav('${x[0]}')">${x[1]}</button>`).join("")}</div><button class="signout" onclick="doLogout()">↪ Sign out</button></aside><div class="overlay hidden" id="overlay" onclick="toggleMenu()"></div><main class="main"><header class="top"><button class="mobile-menu" onclick="toggleMenu()">☰</button><b>IELTS Practice Centre</b><div class="avatar">${(state.user||"S").slice(0,1).toUpperCase()}</div></header><div class="content">${inner}</div></main></div>`}
+function layout(inner){
+  const navItems=[['dashboard','⌂ Dashboard'],['practice','▶ Practice'],['mock','▣ Mock Tests'],['listening','🎧 Listening'],['reading','📖 Reading'],['writing','✍ Writing'],['speaking','🎤 Speaking'],['progress','▥ Progress'],['profile','◉ Profile']];
+  const navButtons=navItems.map(x=>`<button class="${state.page===x[0]?'active':''}" onclick="nav('${x[0]}')">${x[1]}</button>`).join("");
+  return `<div class="shell">
+    <aside class="sidebar" id="side">
+      <div class="brand"><div class="logo">I</div><div><b>IELTS Prep</b><small>CBT Practice</small></div></div>
+      <div class="nav">${navButtons}</div>
+      <button class="signout" onclick="doLogout()">↪ Sign out</button>
+    </aside>
+    <main class="main">
+      <header class="top">
+        <button class="mobile-menu" aria-label="Open navigation" onclick="toggleMenu()">☰</button>
+        <b>IELTS Practice Centre</b>
+        <div class="avatar">${(state.user||"S").slice(0,1).toUpperCase()}</div>
+      </header>
+      <div class="mobile-nav hidden" id="mobileNav">
+        <div class="mobile-nav-inner">
+          ${navButtons}
+          <button class="mobile-signout" onclick="doLogout()">↪ Sign out</button>
+        </div>
+      </div>
+      <div class="content">${inner}</div>
+    </main>
+  </div>`;
+}
 function render(){if(!state.user&&state.page!=="login"&&state.page!=="register")state.page="login";const pages={dashboard,practice,mock,listening:()=>skillPage("listening"),reading:()=>skillPage("reading"),writing,speaking,progress,profile,exam,login,register};document.getElementById("app").innerHTML=(pages[state.page]||dashboard)();bind();ensureGlobalLoader()}
-function toggleMenu(){document.getElementById("side")?.classList.toggle("open");document.getElementById("overlay")?.classList.toggle("hidden")}
+function toggleMenu(){document.getElementById("mobileNav")?.classList.toggle("hidden")} function closeMenu(){document.getElementById("mobileNav")?.classList.add("hidden")}
 function dashboard(){let latest=state.attempts[0];return layout(`<section class="hero"><div><div class="eyebrow">YOUR PREPARATION HUB</div><h1>Welcome back, ${state.user}.</h1><p>Your questions, tests and results are now powered by Firestore.</p></div><button class="btn primary" onclick="nav('mock')">Take a mock test →</button></section><div class="cards"><div class="card stat"><span>Current estimate</span><strong>${latest?.overall||"—"}</strong><small>Latest saved attempt</small></div><div class="card stat"><span>Target band</span><strong>${state.target}</strong><small>Your preparation target</small></div><div class="card stat"><span>Attempts</span><strong>${state.attempts.length}</strong><small>Local display + Firestore</small></div><div class="card stat"><span>Question bank</span><strong>${questions.length||"—"}</strong><small>Published Firestore questions</small></div></div><section class="section"><div class="heading"><div><div class="eyebrow">SKILLS</div><h2>Your IELTS skills</h2></div><button class="btn secondary" onclick="nav('progress')">View progress</button></div><div class="skill-grid">${[['Listening','🎧','listening'],['Reading','📖','reading'],['Writing','✍','writing'],['Speaking','🎤','speaking']].map(s=>{const band=latestSkillBand(s[2]);return `<button class="skill" onclick="nav('${s[2]}')"><span class="ico">${s[1]}</span><span class="skill-main"><b>${s[0]}</b><span class="bar"><i style="width:${band?Math.round(band/9*100):0}%"></i></span><small>${band?`Latest band ${band}`:"No attempts yet"}</small></span>→</button>`}).join("")}</div></section>`)}
 function practice(){return layout(`<div class="page-title"><div class="eyebrow">PRACTICE CENTRE</div><h1>Choose a skill</h1><p>Each objective question is retrieved from Firestore and graded by the backend.</p></div><div class="practice-grid">${[['Listening','🎧','Train with section-based questions and your Firestore question bank.','listening'],['Reading','📖','Practise passages, matching tasks and completion questions.','reading'],['Writing','✍','Work through Task 1 and Task 2 prompts.','writing'],['Speaking','🎤','Practise all three speaking parts.','speaking']].map(x=>`<button class="practice" onclick="nav('${x[3]}')"><span class="emoji">${x[1]}</span><h2>${x[0]}</h2><p>${x[2]}</p><b>Start practice →</b></button>`).join("")}</div>`)}
 function currentTest(){return tests.find(t=>t.id===state.testId)||tests.find(t=>t.type===state.type)||tests[0]}
 function mock(){if(!contentReady)return layout(`<div class="empty">${contentError||"Loading your Firestore question bank…"}<br><button class="btn secondary" onclick="loadFirestoreContent()">Retry</button></div>`);const available=tests.filter(t=>t.type===state.type);return layout(`<div class="page-title"><div class="eyebrow">FULL EXAMS</div><h1>Mock tests</h1><p>Choose a published Firestore test. Your objective answers are graded on the server.</p></div><div class="switch"><button class="${state.type==='academic'?'active':''}" onclick="state.type='academic';render()">Academic</button><button class="${state.type==='general'?'active':''}" onclick="state.type='general';render()">General Training</button></div>${available.map(t=>`<div class="test"><div class="test-body"><span class="tag">${t.type}</span><h2>${t.title}</h2><p>${t.description||t.desc||''}</p><span class="meta">⏱ ${t.duration||150} minutes · ${(t.skills||['Listening','Reading','Writing']).join(' · ')}</span></div><button class="btn primary" onclick="state.page='exam';state.testId='${t.id}';state.stage=0;state.answers={};state.examAnswers={};render()">Start →</button></div>`).join("")||'<div class="empty">No published tests found.</div>'}`)}
 function timer(seconds,id){setTimeout(()=>{let el=document.getElementById(id);if(!el)return;let end=Date.now()+seconds*1000;function tick(){let r=Math.max(0,Math.floor((end-Date.now())/1000));el.textContent=`⏱ ${String(Math.floor(r/60)).padStart(2,"0")}:${String(r%60).padStart(2,"0")}`;if(r>0)setTimeout(tick,500)}tick()},0)}
-function skillPage(skill){if(!contentReady)return layout(`<div class="empty">${contentError||"Loading your Firestore question bank…"}<br><button class="btn secondary" onclick="loadFirestoreContent()">Retry</button></div>`);let pool=questions.filter(q=>q.skill===skill);let test=currentTest();let qs=(test?.id?pool.filter(q=>q.testId===test.id):pool).slice(0,40);if(!qs.length)return layout(`<div class="empty">No published ${skill} questions are available yet.</div>`);let title=skill[0].toUpperCase()+skill.slice(1);let passage=qs.find(q=>q.passage)?.passage;return layout(`<div class="exam-head"><div><span class="tag">${title} Practice</span><h1>${test?.title||title}</h1><p>Loaded from Firestore · ${qs.length} questions</p></div><div class="timer" id="timer">⏱ 30:00</div></div>${skill==='listening'?'<div class="audio"><button class="play" onclick="alert(\'Add audioUrl to the Firestore question set when your licensed audio is ready.\')">▶</button><div><b>Listening audio</b><p>Firestore supports an audioUrl field for each set.</p></div></div>':''}<div class="${skill==='reading'?'passage-layout':'exam-layout'}">${skill==='reading'&&passage?`<article class="passage"><h2>Reading passage</h2><p>${passage}</p></article>`:''}<main>${qs.map(q=>qhtml(q)).join("")}<button class="btn primary" onclick="submitSkill('${skill}')">${state.submitting?'Saving…':'Submit '+title+' practice'}</button>${state.submitted?`<div class="success">Saved. Band estimate: <b>${state.lastResult?.skills?.[skill]?.band||state.lastResult?.overall||'—'}</b></div>`:''}</main><aside class="side"><b>Questions</b><div class="nums">${qs.map(q=>`<span class="${state.answers[q.id]?'answered':''}">${q.number}</span>`).join("")}</div><button class="btn secondary" style="width:100%;margin-top:12px" onclick="nav('practice')">Exit practice</button></aside></div>`);setTimeout(()=>timer(1800,"timer"),0)}
+function skillPage(skill){if(!contentReady)return layout(`<div class="empty">${contentError||"Loading your Firestore question bank…"}<br><button class="btn secondary" onclick="loadFirestoreContent()">Retry</button></div>`);let pool=questions.filter(q=>q.skill===skill);let test=currentTest();let qs=(test?.id?pool.filter(q=>q.testId===test.id):pool).slice(0,40);if(!qs.length)return layout(`<div class="empty">No published ${skill} questions are available yet.</div>`);let title=skill[0].toUpperCase()+skill.slice(1);let passage=qs.find(q=>q.passage)?.passage;return layout(`<div class="exam-head"><div><span class="tag">${title} Practice</span><h1>${test?.title||title}</h1><p>Loaded from Firestore · ${qs.length} questions</p></div><div class="timer" id="timer">⏱ 30:00</div></div>${skill==='listening'?`<div class="audio"><div><b>IELTS Listening audio</b><p>Original audio is generated securely with xAI TTS for each section. Choose a section, then press play.</p></div><div class="audio-controls">${[1,2,3,4].map(s=>`<button class="btn secondary" onclick="playListeningAudio('${test?.id||''}',${s})">▶ Section ${s}</button>`).join("")}</div><audio id="listeningPlayer" controls preload="none" style="width:100%;margin-top:12px"></audio></div>`:''}<div class="${skill==='reading'?'passage-layout':'exam-layout'}">${skill==='reading'&&passage?`<article class="passage"><h2>Reading passage</h2><p>${passage}</p></article>`:''}<main>${qs.map(q=>qhtml(q)).join("")}<button class="btn primary" onclick="submitSkill('${skill}')">${state.submitting?'Saving…':'Submit '+title+' practice'}</button>${state.submitted?`<div class="success">Saved. Band estimate: <b>${state.lastResult?.skills?.[skill]?.band||state.lastResult?.overall||'—'}</b></div>`:''}</main><aside class="side"><b>Questions</b><div class="nums">${qs.map(q=>`<span class="${state.answers[q.id]?'answered':''}">${q.number}</span>`).join("")}</div><button class="btn secondary" style="width:100%;margin-top:12px" onclick="nav('practice')">Exit practice</button></aside></div>`);setTimeout(()=>timer(1800,"timer"),0)}
+async function playListeningAudio(testId, section){
+  if(!testId){alert("Select a listening test first.");return;}
+  try{
+    setGlobalLoading(true,"Preparing listening audio…",`Generating Section ${section} audio`);
+    const r=await fetch(`/api/listening-audio?testId=${encodeURIComponent(testId)}&section=${section}`,{credentials:"include"});
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.message||"Unable to load listening audio.");}
+    const blob=await r.blob();
+    const player=document.getElementById("listeningPlayer");
+    if(player){
+      if(window.__ieltsAudioUrl)URL.revokeObjectURL(window.__ieltsAudioUrl);
+      window.__ieltsAudioUrl=URL.createObjectURL(blob);
+      player.src=window.__ieltsAudioUrl; await player.play().catch(()=>{});
+    }
+  }catch(e){alert(e.message||"Unable to play listening audio.");}
+  finally{setGlobalLoading(false);}
+}
 function qhtml(q){return `<div class="question"><div class="qnum">Question ${q.number}</div>${q.passage&&q.type!=="text"?`<details><summary>View passage excerpt</summary><p>${q.passage}</p></details>`:''}<h3>${q.prompt}</h3>${q.type==='text'?`<input class="answer" value="${String(state.answers[q.id]||'').replace(/"/g,'&quot;')}" oninput="state.answers['${q.id}']=this.value">`:`<div class="options">${(q.options||[]).map(o=>`<label class="option ${state.answers[q.id]===o?'selected':''}"><input type="radio" name="${q.id}" ${state.answers[q.id]===o?'checked':''} onchange="state.answers['${q.id}']='${String(o).replace(/'/g,"\\'")}';render()"> ${o}</label>`).join("")}</div>`}</div>`}
 async function submitSkill(skill){try{state.submitting=true;render();const r=await submitAttempt("practice",skill,state.testId||null,state.answers);state.lastResult=r;state.submitting=false;state.submitted=true;addAttempt({skill,overall:r.skills?.[skill]?.band||r.overall,skills:r.skills,serverId:r.id});render()}catch(e){state.submitting=false;render();alert(e.message)}}
 function exam(){if(!contentReady)return layout(`<div class="empty">${contentError||"Loading your Firestore question bank…"}<br><button class="btn secondary" onclick="loadFirestoreContent()">Retry</button></div>`);const test=currentTest(),stages=['Listening','Reading','Writing'];if(state.stage>=3){const r=state.examResult||{};return layout(`<div class="result"><div class="eyebrow" style="color:#b8c9d8">MOCK TEST COMPLETE</div><h1>Estimated overall band</h1><strong>${r.overall||'—'}</strong><p>Your result has been saved to Firestore.</p></div><div class="result-grid"><div class="card"><span class="muted">Listening</span><strong>${r.listening||'—'}</strong></div><div class="card"><span class="muted">Reading</span><strong>${r.reading||'—'}</strong></div></div><button class="btn primary" onclick="nav('progress')">View progress</button>`)}const skill=stages[state.stage].toLowerCase(),qs=questions.filter(q=>q.skill===skill&&q.testId===test?.id).slice(0,40);if(state.stage<2&&!qs.length)return layout(`<div class="empty">No published ${stages[state.stage]} questions are attached to this test.</div>`);return layout(`<div class="exam-head"><div><span class="tag">${test?.type||state.type}</span><h1>${stages[state.stage]}</h1><p>${test?.title||'Mock test'} · ${qs.length} questions</p></div><div class="timer" id="examTimer">⏱ ${state.stage===0?'30:00':'60:00'}</div></div><div class="stepper">${stages.map((s,i)=>`<div class="step ${i===state.stage?'active':''} ${i<state.stage?'complete':''}">${i+1}. ${s}</div>`).join('')}</div>${state.stage<2?`<div class="exam-layout"><main>${qs.map(q=>qhtml(q)).join('')}<button class="btn primary" onclick="nextStage()">${state.stage===1?'Continue to Writing':'Continue to Reading'}</button></main><aside class="side"><b>Exam sections</b><p>1. Listening</p><p>2. Reading</p><p>3. Writing</p><p class="muted">Objective answers are saved when submitted.</p></aside></div>`:`<div class="writing-prompt"><h2>Writing section</h2><p>Complete the Writing tasks in the Writing module. Finish this mock to save the combined objective result.</p><button class="btn primary" onclick="finishExam()">Finish mock test</button></div>`}`)}
@@ -245,7 +285,7 @@ async function showForgotPassword(){
 async function doLogout(){
   try{ await apiLogout(); }catch(e){}
   state.user=null;
-  localStorage.removeItem("ielts-user");
+  sessionStorage.removeItem("ielts-user");
   state.page="login";
   render();
 }
@@ -265,8 +305,9 @@ async function doLogin(){
       return;
     }
     state.user=data.user?.name || email.split("@")[0];
-    localStorage.setItem("ielts-user",state.user);
+    sessionStorage.setItem("ielts-user",state.user);
     nav("dashboard");
+    loadFirestoreContent();
     fetchAttempts();
   }catch(e){
     document.getElementById("err").innerHTML='<div class="error">'+(e.message||"Unable to sign in.")+'</div>';
@@ -299,5 +340,9 @@ Object.assign(window, {
   state, render, nav, setGlobalLoading, showResend, showForgotPassword, doLogin, doRegister, doLogout,
   nextStage, finishExam, submitSkill, submitWriting, toggleRecord, startLiveSpeaking, stopLiveSpeaking, loadFirestoreContent
 });
-state.user=localStorage.getItem("ielts-user")||null;render();loadFirestoreContent();
-if(state.user) fetchAttempts();
+// Authentication is intentionally session-only. Returning to the site after a page leave/reload requires a fresh login.
+state.user=null;
+sessionStorage.removeItem("ielts-user");
+render();
+// Invalidate the server session when the page is being left so a later visit cannot reuse it.
+window.addEventListener("pagehide",()=>{try{fetch("/api/auth",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"logout"})})}catch(e){}});

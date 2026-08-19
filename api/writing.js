@@ -60,7 +60,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed." });
-  // Lower limit than a plain save, since each request now costs an OpenAI call.
+  // Lower limit than a plain save, since each request now costs an xAI evaluation call.
   if (!(await rateLimit(req, res, { key: "writing-submit", limit: 15 }))) return;
 
   const { taskId = null, taskType = 1, testType = "academic", prompt = "", text = "", minimumWords = 0 } = req.body || {};

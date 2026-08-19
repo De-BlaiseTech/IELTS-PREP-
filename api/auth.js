@@ -35,8 +35,8 @@ async function login(req,res){
   if(user.emailVerified!==true) return json(res,403,{message:"Please verify your email before signing in."});
   if(!verifyPassword(password,user.passwordHash)) return json(res,401,{message:"Invalid email or password."});
   const sessionToken=randomToken(32);
-  await adminDb.collection("sessions").doc(hashSecret(sessionToken)).set({uid:doc.id,createdAt:new Date(),expiresAt:new Date(Date.now()+7*24*60*60*1000)});
-  setSessionCookie(res,sessionToken,7*24*60*60);
+  await adminDb.collection("sessions").doc(hashSecret(sessionToken)).set({uid:doc.id,createdAt:new Date(),expiresAt:new Date(Date.now()+30*60*1000)});
+  setSessionCookie(res,sessionToken,30*60);
   return json(res,200,{verified:true,user:{id:doc.id,name:user.name,email:user.email,role:user.role}});
 }
 async function logout(req,res){

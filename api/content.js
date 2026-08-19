@@ -1,7 +1,9 @@
 import { adminDb } from "../lib/server/firebase-admin.js";
+import { requireSession } from "../lib/server/session.js";
 async function readCollection(name){const snap=await adminDb.collection(name).where("published","==",true).get();return snap.docs.map(d=>({id:d.id,...d.data()}));}
 function clean(v){return v===undefined||v===null||v===""?undefined:v;}
 export default async function handler(req,res){
+ const user=await requireSession(req,res); if(!user) return;
  if(req.method!=="GET") return res.status(405).json({message:"Method not allowed."});
  try{
   const action=String(req.query?.action||"all");
