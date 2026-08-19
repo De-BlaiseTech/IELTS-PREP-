@@ -2,7 +2,7 @@ import { register as apiRegister, resendVerification, login as apiLogin, logout 
 const state={
  page:"dashboard", user:null, target:Number(localStorage.getItem("ielts-target")||7.5),
  attempts:JSON.parse(localStorage.getItem("ielts-attempts")||"[]"), answers:{}, submitted:false,
- type:"academic", testId:null, examAnswers:{}, stage:0, writingTask:1, writingVariant:0, writingText:"", speakingPart:1, recording:false, timer:null
+ type:"academic", testId:null, examAnswers:{}, stage:0, writingTask:1, writingVariant:0, writingText:"", speakingPart:1, recording:false, speakingLive:false, speakingLiveStatus:"", timer:null
 };
 let questions=[]; let tests=[]; let contentReady=false; let contentError="";
 const SPEAKING_PARTS=[
@@ -53,11 +53,7 @@ async function loadFirestoreContent(){
   }catch(e){contentReady=false; contentError=e.message||"Unable to load Firestore question bank.";} render();
 }
 function save(){localStorage.setItem("ielts-attempts",JSON.stringify(state.attempts))}
-function nav(p){
-  // Stop any ongoing browser speech when navigating away
-  if('speechSynthesis' in window) window.speechSynthesis.cancel();
-  state.page=p;state.submitted=false;state.answers={};state.lastWritingResult=null;state.lastSpeakingResult=null;closeMenu();render()
-}
+function nav(p){state.page=p;state.submitted=false;state.answers={};state.lastWritingResult=null;state.lastSpeakingResult=null;closeMenu();render()}
 function addAttempt(a){state.attempts.unshift({...a,date:new Date().toLocaleDateString()});save()}
 function overall(vals){let a=vals.filter(v=>typeof v==="number"&&v>0);return a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length*2)/2:0}
 function latestSkillBand(skill){const found=state.attempts.find(a=>String(a.skill||"").toLowerCase()===skill);return typeof found?.overall==="number"&&found.overall>0?found.overall:null}
@@ -108,52 +104,25 @@ function practice(){return layout(`<div class="page-title"><div class="eyebrow">
 function currentTest(){return tests.find(t=>t.id===state.testId)||tests.find(t=>t.type===state.type)||tests[0]}
 function mock(){if(!contentReady)return layout(`<div class="empty">${contentError||"Loading your Firestore question bank…"}<br><button class="btn secondary" onclick="loadFirestoreContent()">Retry</button></div>`);const available=tests.filter(t=>t.type===state.type);return layout(`<div class="page-title"><div class="eyebrow">FULL EXAMS</div><h1>Mock tests</h1><p>Choose a published Firestore test. Your objective answers are graded on the server.</p></div><div class="switch"><button class="${state.type==='academic'?'active':''}" onclick="state.type='academic';render()">Academic</button><button class="${state.type==='general'?'active':''}" onclick="state.type='general';render()">General Training</button></div>${available.map(t=>`<div class="test"><div class="test-body"><span class="tag">${t.type}</span><h2>${t.title}</h2><p>${t.description||t.desc||''}</p><span class="meta">⏱ ${t.duration||150} minutes · ${(t.skills||['Listening','Reading','Writing']).join(' · ')}</span></div><button class="btn primary" onclick="state.page='exam';state.testId='${t.id}';state.stage=0;state.answers={};state.examAnswers={};render()">Start →</button></div>`).join("")||'<div class="empty">No published tests found.</div>'}`)}
 function timer(seconds,id){setTimeout(()=>{let el=document.getElementById(id);if(!el)return;let end=Date.now()+seconds*1000;function tick(){let r=Math.max(0,Math.floor((end-Date.now())/1000));el.textContent=`⏱ ${String(Math.floor(r/60)).padStart(2,"0")}:${String(r%60).padStart(2,"0")}`;if(r>0)setTimeout(tick,500)}tick()},0)}
-
-function skillPage(skill){
-  if(!contentReady)return layout(`<div class="empty">${contentError||"Loading your Firestore question bank…"}<br><button class="btn secondary" onclick="loadFirestoreContent()">Retry</button></div>`);
-  let pool=questions.filter(q=>q.skill===skill);let test=currentTest();let qs=(test?.id?pool.filter(q=>q.testId===test.id):pool).slice(0,40);
-  if(!qs.length)return layout(`<div class="empty">No published ${skill} questions are available yet.</div>`);
-  let title=skill[0].toUpperCase()+skill.slice(1);let passage=qs.find(q=>q.passage)?.passage;
-  
-  return layout(`<div class="exam-head"><div><span class="tag">${title} Practice</span><h1>${test?.title||title}</h1><p>Loaded from Firestore · ${qs.length} questions</p></div><div class="timer" id="timer">⏱ 30:00</div></div>
-  ${skill==='listening'?`<div class="audio"><div><b>IELTS Listening audio</b><p>Audio is read aloud using your browser's built-in text-to-speech engine securely and for free.</p></div><div class="audio-controls">${[1,2,3,4].map(s=>`<button class="btn secondary" onclick="playBrowserSectionAudio(${s})">🔊 Play Section ${s}</button>`).join("")}</div><div class="audio-player-wrap"><button class="btn secondary" style="margin-top:12px;background:#c0392b;color:#fff;" onclick="stopBrowserAudio()">⏹ Stop Audio</button><small id="audioStatus" class="muted audio-status">Select a section to listen.</small></div></div>`:''}
-  <div class="${skill==='reading'?'passage-layout':'exam-layout'}">${skill==='reading'&&passage?`<article class="passage"><h2>Reading passage</h2><p>${passage}</p></article>`:''}<main>${qs.map(q=>qhtml(q)).join("")}<button class="btn primary" onclick="submitSkill('${skill}')">${state.submitting?'Saving…':'Submit '+title+' practice'}</button>${state.submitted?`<div class="success">Saved. Band estimate: <b>${state.lastResult?.skills?.[skill]?.band||state.lastResult?.overall||'—'}</b></div>`:''}</main><aside class="side"><b>Questions</b><div class="nums">${qs.map(q=>`<span class="${state.answers[q.id]?'answered':''}">${q.number}</span>`).join("")}</div><button class="btn secondary" style="width:100%;margin-top:12px" onclick="nav('practice')">Exit practice</button></aside></div>`);
-  setTimeout(()=>timer(1800,"timer"),0)
+function skillPage(skill){if(!contentReady)return layout(`<div class="empty">${contentError||"Loading your Firestore question bank…"}<br><button class="btn secondary" onclick="loadFirestoreContent()">Retry</button></div>`);let pool=questions.filter(q=>q.skill===skill);let test=currentTest();let qs=(test?.id?pool.filter(q=>q.testId===test.id):pool).slice(0,40);if(!qs.length)return layout(`<div class="empty">No published ${skill} questions are available yet.</div>`);let title=skill[0].toUpperCase()+skill.slice(1);let passage=qs.find(q=>q.passage)?.passage;return layout(`<div class="exam-head"><div><span class="tag">${title} Practice</span><h1>${test?.title||title}</h1><p>Loaded from Firestore · ${qs.length} questions</p></div><div class="timer" id="timer">⏱ 30:00</div></div>${skill==='listening'?`<div class="audio"><div><b>IELTS Listening audio</b><p>Original audio is generated securely with xAI TTS for each section. Choose a section, then press play.</p></div><div class="audio-controls">${[1,2,3,4].map(s=>`<button class="btn secondary" onclick="playListeningAudio('${test?.id||''}',${s})">▶ Section ${s}</button>`).join("")}</div><div class="audio-player-wrap"><audio id="listeningPlayer" controls preload="metadata" playsinline style="width:100%;margin-top:12px"></audio><small id="audioStatus" class="muted audio-status">Select a section to load its audio.</small></div></div>`:''}<div class="${skill==='reading'?'passage-layout':'exam-layout'}">${skill==='reading'&&passage?`<article class="passage"><h2>Reading passage</h2><p>${passage}</p></article>`:''}<main>${qs.map(q=>qhtml(q)).join("")}<button class="btn primary" onclick="submitSkill('${skill}')">${state.submitting?'Saving…':'Submit '+title+' practice'}</button>${state.submitted?`<div class="success">Saved. Band estimate: <b>${state.lastResult?.skills?.[skill]?.band||state.lastResult?.overall||'—'}</b></div>`:''}</main><aside class="side"><b>Questions</b><div class="nums">${qs.map(q=>`<span class="${state.answers[q.id]?'answered':''}">${q.number}</span>`).join("")}</div><button class="btn secondary" style="width:100%;margin-top:12px" onclick="nav('practice')">Exit practice</button></aside></div>`);setTimeout(()=>timer(1800,"timer"),0)}
+async function playListeningAudio(testId, section){
+  if(!testId){alert("Select a listening test first.");return;}
+  const player=document.getElementById("listeningPlayer"), status=document.getElementById("audioStatus");
+  try{
+    setGlobalLoading(true,"Preparing listening audio…",`Loading Section ${section} audio`);
+    if(status) status.textContent=`Generating Section ${section} audio…`;
+    const r=await fetch(`/api/listening-audio?testId=${encodeURIComponent(testId)}&section=${section}`,{credentials:"include",cache:"no-store"});
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.message||`Audio service returned ${r.status}.`);}
+    const blob=await r.blob();
+    if(!blob.size) throw new Error("The audio service returned an empty file.");
+    if(window.__ieltsAudioUrl)URL.revokeObjectURL(window.__ieltsAudioUrl);
+    window.__ieltsAudioUrl=URL.createObjectURL(blob);
+    if(!player) throw new Error("Audio player is unavailable.");
+    player.pause(); player.src=window.__ieltsAudioUrl; player.load();
+    if(status) status.textContent=`Section ${section} audio is ready. Tap ▶ on the player to listen.`;
+  }catch(e){if(status)status.textContent=e.message||"Unable to load audio.";alert(e.message||"Unable to load listening audio.");}
+  finally{setGlobalLoading(false);}
 }
-
-// Browser Web Speech API Audio Player for Listening Tests
-function playBrowserSectionAudio(section){
-  if(!('speechSynthesis' in window)){
-    alert("Text-to-speech is not supported on this device/browser.");
-    return;
-  }
-  window.speechSynthesis.cancel(); // Stop any ongoing speech
-  
-  const status=document.getElementById("audioStatus");
-  if(status) status.textContent=`Preparing Section ${section} script...`;
-
-  const sectionText = `Section ${section}. You will now listen to section ${section} of the IELTS listening test. Please follow along with the questions carefully.`;
-  
-  const utterance = new SpeechSynthesisUtterance(sectionText);
-  utterance.rate = 0.9;
-  utterance.pitch = 1.0;
-  utterance.lang = 'en-GB';
-
-  utterance.onstart = () => { if(status) status.textContent = `Now playing Section ${section}...`; };
-  utterance.onend = () => { if(status) status.textContent = `Section ${section} finished playing.`; };
-  utterance.onerror = () => { if(status) status.textContent = `Playback error encountered.`; };
-
-  window.speechSynthesis.speak(utterance);
-}
-
-function stopBrowserAudio(){
-  if('speechSynthesis' in window){
-    window.speechSynthesis.cancel();
-    const status=document.getElementById("audioStatus");
-    if(status) status.textContent = "Audio stopped.";
-  }
-}
-
 function qhtml(q){return `<div class="question"><div class="qnum">Question ${q.number}</div>${q.passage&&q.type!=="text"?`<details><summary>View passage excerpt</summary><p>${q.passage}</p></details>`:''}<h3>${q.prompt}</h3>${q.type==='text'?`<input class="answer" value="${String(state.answers[q.id]||'').replace(/"/g,'&quot;')}" oninput="state.answers['${q.id}']=this.value">`:`<div class="options">${(q.options||[]).map(o=>`<label class="option ${state.answers[q.id]===o?'selected':''}"><input type="radio" name="${q.id}" ${state.answers[q.id]===o?'checked':''} onchange="state.answers['${q.id}']='${String(o).replace(/'/g,"\\'")}';render()"> ${o}</label>`).join("")}</div>`}</div>`}
 async function submitSkill(skill){try{state.submitting=true;render();const r=await submitAttempt("practice",skill,state.testId||null,state.answers);state.lastResult=r;state.submitting=false;state.submitted=true;addAttempt({skill,overall:r.skills?.[skill]?.band||r.overall,skills:r.skills,serverId:r.id});render()}catch(e){state.submitting=false;render();alert(e.message)}}
 function exam(){if(!contentReady)return layout(`<div class="empty">${contentError||"Loading your Firestore question bank…"}<br><button class="btn secondary" onclick="loadFirestoreContent()">Retry</button></div>`);const test=currentTest(),stages=['Listening','Reading','Writing'];if(state.stage>=3){const r=state.examResult||{};return layout(`<div class="result"><div class="eyebrow" style="color:#b8c9d8">MOCK TEST COMPLETE</div><h1>Estimated overall band</h1><strong>${r.overall||'—'}</strong><p>Your result has been saved to Firestore.</p></div><div class="result-grid"><div class="card"><span class="muted">Listening</span><strong>${r.listening||'—'}</strong></div><div class="card"><span class="muted">Reading</span><strong>${r.reading||'—'}</strong></div></div><button class="btn primary" onclick="nav('progress')">View progress</button>`)}const skill=stages[state.stage].toLowerCase(),qs=questions.filter(q=>q.skill===skill&&q.testId===test?.id).slice(0,40);if(state.stage<2&&!qs.length)return layout(`<div class="empty">No published ${stages[state.stage]} questions are attached to this test.</div>`);return layout(`<div class="exam-head"><div><span class="tag">${test?.type||state.type}</span><h1>${stages[state.stage]}</h1><p>${test?.title||'Mock test'} · ${qs.length} questions</p></div><div class="timer" id="examTimer">⏱ ${state.stage===0?'30:00':'60:00'}</div></div><div class="stepper">${stages.map((s,i)=>`<div class="step ${i===state.stage?'active':''} ${i<state.stage?'complete':''}">${i+1}. ${s}</div>`).join('')}</div>${state.stage<2?`<div class="exam-layout"><main>${qs.map(q=>qhtml(q)).join('')}<button class="btn primary" onclick="nextStage()">${state.stage===1?'Continue to Writing':'Continue to Reading'}</button></main><aside class="side"><b>Exam sections</b><p>1. Listening</p><p>2. Reading</p><p>3. Writing</p><p class="muted">Objective answers are saved when submitted.</p></aside></div>`:`<div class="writing-prompt"><h2>Writing section</h2><p>Complete the Writing tasks in the Writing module. Finish this mock to save the combined objective result.</p><button class="btn primary" onclick="finishExam()">Finish mock test</button></div>`}`)}
@@ -176,59 +145,39 @@ const WRITING_TASK1S=[
 function writing(){
   const task=state.writingTask===1?WRITING_TASK1S[state.writingVariant%WRITING_TASK1S.length]:{title:'Academic Writing Task 2',min:250,prompt:'Some people think schools should focus more on practical skills than academic subjects. To what extent do you agree or disagree?'};
   const words=state.writingText.trim()?state.writingText.trim().split(/\s+/).length:0, result=state.lastWritingResult;
-  return layout(`<div class="page-title"><div class="eyebrow">WRITING PRACTICE</div><h1>${task.title}</h1><p>Write under realistic IELTS time and word-count conditions.</p></div><div class="switch"><button class="${state.writingTask===1?'active':''}" onclick="state.writingTask=1;state.writingText='';state.lastWritingResult=null;render()">Task 1</button><button class="${state.writingTask===2?'active':''}" onclick="state.writingTask=2;state.writingText='';state.lastWritingResult=null;render()">Task 2</button>${state.writingTask===1?`<button class="secondary visual-next" onclick="state.writingVariant=(state.writingVariant+1)%${WRITING_TASK1S.length};state.writingText='';state.lastWritingResult=null;render()">Next visual →</button>`:''}</div><div class="writing-prompt"><span class="tag">PROMPT</span><h2>${task.prompt}</h2>${task.visualType?writingVisual(task):''}<b>Minimum: ${task.min} words</b></div><textarea class="editor" id="editor" placeholder="Write your answer here...">${escapeHtml(state.writingText)}</textarea><div class="write-foot"><span class="muted">Word count: <b id="wc">${words}</b></span><button class="btn primary" onclick="submitWriting()" ${state.writingEvaluating?'disabled':''}>${state.writingEvaluating?'Evaluating…':'Submit response'}</button></div>${state.submitted&&!result?`<div class="success">${state.writingSaveMessage||'Response saved.'}</div>`:''}${result?`<div class="success"><b>Local rubric estimate — overall band ${result.overallBand}</b><p class="muted">${result.disclaimer||'Estimated via local criteria check.'}</p><ul>${[['taskResponse',state.writingTask===2?'Task Response':'Task Achievement'],['coherenceCohesion','Coherence & Cohesion'],['lexicalResource','Lexical Resource'],['grammar','Grammatical Range & Accuracy']].map(([k,label])=>`<li><b>${label}</b>: ${result[k]?.band??'—'} — ${result[k]?.feedback||''}</li>`).join('')}</ul>${result.improvements?.length?`<p class="muted"><b>To improve:</b> ${result.improvements.join(' · ')}</p>`:''}</div>`:''}</div>`);
+  return layout(`<div class="page-title"><div class="eyebrow">WRITING PRACTICE</div><h1>${task.title}</h1><p>Write under realistic IELTS time and word-count conditions.</p></div><div class="switch"><button class="${state.writingTask===1?'active':''}" onclick="state.writingTask=1;state.writingText='';state.lastWritingResult=null;render()">Task 1</button><button class="${state.writingTask===2?'active':''}" onclick="state.writingTask=2;state.writingText='';state.lastWritingResult=null;render()">Task 2</button>${state.writingTask===1?`<button class="secondary visual-next" onclick="state.writingVariant=(state.writingVariant+1)%${WRITING_TASK1S.length};state.writingText='';state.lastWritingResult=null;render()">Next visual →</button>`:''}</div><div class="writing-prompt"><span class="tag">PROMPT</span><h2>${task.prompt}</h2>${task.visualType?writingVisual(task):''}<b>Minimum: ${task.min} words</b></div><textarea class="editor" id="editor" placeholder="Write your answer here...">${escapeHtml(state.writingText)}</textarea><div class="write-foot"><span class="muted">Word count: <b id="wc">${words}</b></span><button class="btn primary" onclick="submitWriting()" ${state.writingEvaluating?'disabled':''}>${state.writingEvaluating?'Evaluating…':'Submit response'}</button></div>${state.submitted&&!result?`<div class="success">${state.writingSaveMessage||'Response saved.'}</div>`:''}${result?`<div class="success"><b>AI practice estimate — overall band ${result.overallBand}</b><p class="muted">${result.disclaimer||'Not an official IELTS score.'}</p><ul>${[['taskResponse',state.writingTask===2?'Task Response':'Task Achievement'],['coherenceCohesion','Coherence & Cohesion'],['lexicalResource','Lexical Resource'],['grammar','Grammatical Range & Accuracy']].map(([k,label])=>`<li><b>${label}</b>: ${result[k]?.band??'—'} — ${result[k]?.feedback||''}</li>`).join('')}</ul>${result.improvements?.length?`<p class="muted"><b>To improve:</b> ${result.improvements.join(' · ')}</p>`:''}</div>`:''}</div>`);
 }
-
-// Local Rule-Based Writing Evaluation (No external API calls)
 async function submitWriting(){
-  const text=document.getElementById("editor").value.trim();
+  state.writingText=document.getElementById("editor").value;
   const task=state.writingTask===1?WRITING_TASK1S[state.writingVariant%WRITING_TASK1S.length]:{title:"Academic Writing Task 2",min:250,prompt:"Some people think schools should focus more on practical skills than academic subjects. To what extent do you agree or disagree?"};
-  if(!text){alert("Write a response before submitting.");return}
-  
-  state.writingEvaluating=true;state.lastWritingResult=null;render();
-  
-  const words=text.split(/\s+/).length;
-  const sentences=text.split(/[.!?]+/).filter(Boolean).length;
-  const avgSentenceLength=sentences>0?words/sentences:0;
-
-  let band=5.0;
-  if(words>=task.min) band=6.0;
-  if(words>=task.min+50&&avgSentenceLength>=12) band=7.0;
-  if(words>=task.min+100&&avgSentenceLength>=15) band=7.5;
-  if(words<task.min) band=4.5;
-
-  const result={
-    overallBand:band,
-    wordCount:words,
-    disclaimer:"Estimated locally based on word count and structural complexity rules.",
-    taskResponse:{band:band,feedback:words>=task.min?"Adequate length achieved for task requirements.":"Below minimum word count requirement."},
-    coherenceCohesion:{band:band,feedback:`Average sentence length: ${Math.round(avgSentenceLength)} words per sentence.`},
-    lexicalResource:{band:band,feedback:"Vocabulary variety checked against standard structural rules."},
-    grammar:{band:band,feedback:"Sentence complexity appears structurally sound."},
-    improvements:words<task.min?[`Write at least ${task.min} words to satisfy criteria.`]:["Ensure clear paragraph partitioning and varied transition phrases."]
-  };
-
-  state.writingText=text;
-  state.lastWritingResult=result;
-  state.writingSaveMessage="Response evaluated locally.";
-  state.submitted=true;
-  state.writingEvaluating=false;
-  
-  addAttempt({skill:"writing",overall:band,wordCount:words});
-  render();
+  if(!state.writingText.trim()){alert("Write a response before submitting.");return}
+  try{
+    state.writingEvaluating=true;state.lastWritingResult=null;render();
+    const r=await fetch("/api/writing",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({taskType:state.writingTask,testType:"academic",prompt:task.prompt,text:state.writingText,minimumWords:task.min})});
+    const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.message||"Unable to save your response.");
+    state.writingSaveMessage=d.message;
+    if(typeof d.overallBand==="number"){
+      state.lastWritingResult=d;
+      addAttempt({skill:"writing",overall:d.overallBand,wordCount:d.wordCount,serverId:d.id});
+    }
+    state.submitted=true;
+  }catch(e){alert(e.message)}
+  state.writingEvaluating=false;render();
 }
 
 function speaking(){
   let p=SPEAKING_PARTS[state.speakingPart-1], result=state.lastSpeakingResult;
-  return layout(`<div class="page-title"><div class="eyebrow">SPEAKING PRACTICE</div><h1>${p.title}</h1><p>Record your spoken response locally for self-review and practice.</p></div>
-  <div class="parts">${SPEAKING_PARTS.map(x=>`<button class="${state.speakingPart===x.n?'active':''}" onclick="{state.speakingPart=${x.n};state.lastSpeakingResult=null;render()}">Part ${x.n}</button>`).join("")}</div>
+  return layout(`<div class="page-title"><div class="eyebrow">SPEAKING PRACTICE</div><h1>${p.title}</h1><p>Choose standard recording practice or enter <b>Live AI Examiner</b> for a real-time IELTS-style interview powered by Grok.</p></div>
+  <div class="parts">${SPEAKING_PARTS.map(x=>`<button class="${state.speakingPart===x.n?'active':''}" onclick="if(!state.speakingLive){state.speakingPart=${x.n};state.lastSpeakingResult=null;render()}">Part ${x.n}</button>`).join("")}</div>
   <div class="speaking">
     ${p.cue?`<span class="tag">CUE CARD</span><h2>${p.cue}</h2><p class="muted">Preparation: 1 minute · Speaking: 1–2 minutes</p>`:`${p.qs.map((q,i)=>`<div class="squestion"><b>${i+1}</b><span>${q}</span></div>`).join("")}`}
     <div class="record">
-      <button class="${state.recording?'stop':''}" onclick="toggleRecord()" ${state.speakingEvaluating?'disabled':''}>${state.recording?'■ Stop recording':'🎙 Start recording'}</button>
-      <span class="muted">${state.recording?'Recording audio locally…':'Ready'}</span>
+      <button class="${state.recording?'stop':''}" onclick="toggleRecord()" ${state.speakingEvaluating||state.speakingLive?'disabled':''}>${state.recording?'■ Stop recording':state.speakingEvaluating?'Evaluating…':'🎙 Start recording'}</button>
+      <button class="${state.speakingLive?'stop':''}" onclick="${state.speakingLive?'stopLiveSpeaking()':'startLiveSpeaking()'}" ${state.recording||state.speakingEvaluating?'disabled':''}>${state.speakingLive?'■ End live interview':'🤖 Live AI Examiner'}</button>
+      <span class="muted">${state.speakingLive?state.speakingLiveStatus:state.recording?'Recording…':state.speakingEvaluating?'Transcribing and scoring your response…':'Ready'}</span>
     </div>
-    ${result?`<div class="success"><b>Recording saved successfully</b><p class="muted">${result.disclaimer}</p><p>You can use the audio controls above to review your recorded practice.</p></div>`:''}
+    ${state.speakingLive?`<div class="success"><b>Live examiner active</b><p class="muted">Grok is acting as your IELTS-style examiner. Speak naturally. The browser microphone audio is streamed using a short-lived xAI token; your permanent API key stays on Vercel.</p><div class="card"><b>Live transcript</b><p>${escapeHtml(window.liveSpeakingTranscript||'Listening…')}</p></div></div>`:''}
+    ${result?`<div class="success"><b>AI practice estimate — overall band ${result.overallBand}</b><p class="muted">${result.disclaimer||'Not an official IELTS score.'}</p><p><b>Transcript:</b> ${escapeHtml(result.transcript||'')}</p><ul>${['fluencyCoherence','lexicalResource','grammar','pronunciation'].map(k=>`<li><b>${k}</b>: ${result[k]?.band??'—'} — ${result[k]?.feedback||''}</li>`).join('')}</ul></div>`:''}
   </div>`);
 }
 function escapeHtml(v){return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
@@ -242,19 +191,91 @@ async function toggleRecord(){
     mediaRecorder.ondataavailable=e=>recordChunks.push(e.data);
     mediaRecorder.onstop=async()=>{
       stream.getTracks().forEach(t=>t.stop());
+      const p=SPEAKING_PARTS[state.speakingPart-1], prompt=p.cue||p.qs.join(" ");
       const blob=new Blob(recordChunks,{type:"audio/webm"});
       if(blob.size>4000000){alert("Recording is too large. Please keep it under 4 MB.");return}
-      
-      state.lastSpeakingResult={disclaimer:"Local recording saved securely in browser session."};
-      addAttempt({skill:"speaking",overall:6.0,recorded:true});
-      render();
+      state.speakingEvaluating=true;state.lastSpeakingResult=null;render();
+      try{
+        const audioBase64=await blobToBase64(blob);
+        const r=await fetch("/api/speaking/evaluate",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,part:state.speakingPart,audioBase64,mimeType:"audio/webm"})});
+        const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.message||"Unable to evaluate your speaking response.");
+        state.lastSpeakingResult=d; addAttempt({skill:"speaking",overall:d.overallBand,recorded:true,serverId:d.id});
+      }catch(e){alert(e.message)}
+      state.speakingEvaluating=false;render();
     };
-    mediaRecorder.start();state.recording=true;render();
+    mediaRecorder.start();state.recording=true;render()
   }catch(e){alert("Microphone permission is required for speaking practice.")}
 }
 
+let liveWs=null,liveAudioContext=null,liveProcessor=null,liveStream=null,liveGain=null,liveNextPlayTime=0,liveTranscriptParts=[];
+function floatToPcm16(input){const out=new Int16Array(input.length);for(let i=0;i<input.length;i++){const s=Math.max(-1,Math.min(1,input[i]));out[i]=s<0?s*0x8000:s*0x7fff}return out.buffer}
+function arrayBufferToBase64(buffer){let bytes=new Uint8Array(buffer),binary='';const chunk=0x8000;for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode(...bytes.subarray(i,i+chunk));return btoa(binary)}
+function base64ToArrayBuffer(base64){const binary=atob(base64),out=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);return out.buffer}
+function playLivePcm(base64){
+  if(!liveAudioContext)return;
+  const pcm=new Int16Array(base64ToArrayBuffer(base64)); const buffer=liveAudioContext.createBuffer(1,pcm.length,24000), data=buffer.getChannelData(0);
+  for(let i=0;i<pcm.length;i++)data[i]=pcm[i]/32768;
+  const source=liveAudioContext.createBufferSource(); source.buffer=buffer; source.connect(liveAudioContext.destination);
+  const start=Math.max(liveNextPlayTime,liveAudioContext.currentTime+0.02); source.start(start); liveNextPlayTime=start+buffer.duration;
+}
+async function startLiveSpeaking(){
+  if(state.speakingLive)return;
+  try{
+    state.speakingLive=true;state.speakingLiveStatus="Connecting to Grok examiner…";window.liveSpeakingTranscript="";liveTranscriptParts=[];render();
+    const tokenResponse=await fetch("/api/speaking/session",{method:"POST",credentials:"include"});
+    const tokenData=await tokenResponse.json().catch(()=>({})); if(!tokenResponse.ok) throw new Error(tokenData.message||"Unable to create the live speaking session.");
+    liveStream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    liveAudioContext=new AudioContext({sampleRate:24000}); await liveAudioContext.resume();
+    const source=liveAudioContext.createMediaStreamSource(liveStream);
+    liveProcessor=liveAudioContext.createScriptProcessor(4096,1,1); liveGain=liveAudioContext.createGain(); liveGain.gain.value=0;
+    source.connect(liveProcessor); liveProcessor.connect(liveGain); liveGain.connect(liveAudioContext.destination);
+    liveWs=new WebSocket("wss://api.x.ai/v1/realtime?model=grok-voice-latest",[`xai-client-secret.${tokenData.token}`]);
+    liveWs.binaryType="arraybuffer";
+    liveWs.onopen=()=>{
+      const p=SPEAKING_PARTS[state.speakingPart-1], prompt=p.cue||p.qs.join(" ");
+      const instructions=`You are an IELTS Speaking examiner conducting an educational practice interview. This is not an official IELTS examination. Follow IELTS Speaking Part ${state.speakingPart} conventions. Ask one question at a time, listen carefully, do not coach the candidate during the interview, and keep the interaction natural. For Part 1 ask several short questions. For Part 2 introduce the cue card, give the candidate preparation guidance and then let them speak for the long turn; do not interrupt unnecessarily. For Part 3 ask analytical follow-up questions. At the end, thank the candidate and say the interview is complete. Candidate task: ${prompt}`;
+      liveWs.send(JSON.stringify({type:"session.update",session:{voice:"eve",instructions,turn_detection:{type:"server_vad"},reasoning:{effort:"none"},audio:{input:{format:{type:"audio/pcm",rate:24000,transcription:{model:"grok-transcribe",language_hint:"en"}}},output:{format:{type:"audio/pcm",rate:24000}}}}}));
+      liveWs.send(JSON.stringify({type:"conversation.item.create",item:{type:"message",role:"user",content:[{type:"input_text",text:`Begin the IELTS Speaking Part ${state.speakingPart} interview now. Start with the examiner's first instruction or question.`}]}}));
+      liveWs.send(JSON.stringify({type:"response.create"}));
+      state.speakingLiveStatus="Live examiner connected — speak when prompted.";render();
+    };
+    liveWs.onmessage=(event)=>{
+      if(typeof event.data!=="string")return;
+      let e;try{e=JSON.parse(event.data)}catch{return}
+      if(e.type==="response.output_audio.delta"&&e.delta)playLivePcm(e.delta);
+      if(e.type==="conversation.item.input_audio_transcription.updated"&&e.transcript){window.liveSpeakingTranscript=e.transcript;render()}
+      if(e.type==="conversation.item.input_audio_transcription.completed"&&e.transcript){window.liveSpeakingTranscript=e.transcript;liveTranscriptParts.push(e.transcript);render()}
+      if(e.type==="error"){state.speakingLiveStatus=e.error?.message||"Live examiner error.";render()}
+    };
+    liveWs.onerror=()=>{state.speakingLiveStatus="The live examiner connection failed.";render()};
+    liveWs.onclose=()=>{if(state.speakingLive){state.speakingLive=false;state.speakingLiveStatus="Live session ended.";render()}};
+    liveProcessor.onaudioprocess=e=>{
+      if(liveWs?.readyState!==WebSocket.OPEN)return;
+      const pcm=floatToPcm16(e.inputBuffer.getChannelData(0)); liveWs.send(JSON.stringify({type:"input_audio_buffer.append",audio:arrayBufferToBase64(pcm)}));
+    };
+  }catch(e){cleanupLiveSpeaking();state.speakingLive=false;state.speakingLiveStatus="";render();alert(e.message||"Unable to start live speaking.")}
+}
+async function stopLiveSpeaking(){
+  if(!state.speakingLive)return;
+  state.speakingLive=false;state.speakingLiveStatus="Finishing transcript and evaluation…";render();
+  try{
+    liveWs?.close(); liveProcessor?.disconnect(); liveGain?.disconnect(); liveStream?.getTracks().forEach(t=>t.stop()); if(liveAudioContext)await liveAudioContext.close();
+    await new Promise(r=>setTimeout(r,700));
+    const p=SPEAKING_PARTS[state.speakingPart-1], prompt=p.cue||p.qs.join(" "), transcript=String(window.liveSpeakingTranscript||liveTranscriptParts.join(" ")).trim();
+    if(transcript){
+      const r=await fetch("/api/speaking/evaluate",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,part:state.speakingPart,transcript})});
+      const d=await r.json().catch(()=>({})); if(!r.ok)throw new Error(d.message||"Unable to evaluate the live interview.");
+      state.lastSpeakingResult=d; addAttempt({skill:"speaking",overall:d.overallBand,recorded:true,realtime:true,serverId:d.id});
+    }else alert("No transcript was received from the live interview.");
+  }catch(e){alert(e.message||"Unable to finish the live interview.")}
+  cleanupLiveSpeaking();state.speakingLive=false;state.speakingLiveStatus="";render();
+}
+function cleanupLiveSpeaking(){
+  try{liveWs?.close()}catch{}; try{liveProcessor?.disconnect()}catch{}; try{liveGain?.disconnect()}catch{}; liveStream?.getTracks().forEach(t=>t.stop()); if(liveAudioContext?.state!=="closed")liveAudioContext?.close().catch(()=>{}); liveWs=null;liveProcessor=null;liveGain=null;liveStream=null;liveAudioContext=null;liveNextPlayTime=0;
+}
+
 function progress(){let latest=state.attempts[0];return layout(`<div class="page-title"><div class="eyebrow">YOUR PERFORMANCE</div><h1>Progress</h1><p>Track your practice and identify where to focus next.</p></div><div class="analytics"><div class="card"><span class="muted">Target band</span><strong>${state.target}</strong></div><div class="card"><span class="muted">Attempts</span><strong>${state.attempts.length}</strong></div><div class="card"><span class="muted">Latest overall</span><strong>${latest?.overall||'—'}</strong></div></div><section class="section"><div class="heading"><h2>Skill breakdown</h2></div><div class="skill-grid">${[['Listening','listening'],['Reading','reading'],['Writing','writing'],['Speaking','speaking']].map(x=>{const band=latestSkillBand(x[1]);return `<div class="card"><b>${x[0]}</b><strong style="display:block;font-size:25px;margin-top:7px">${band??'—'}</strong><span class="bar"><i style="width:${band?band/9*100:0}%"></i></span></div>`}).join("")}</div></section><section class="section"><h2>Practice history</h2><div class="history">${state.attempts.length?state.attempts.map(a=>`<div class="history-row"><span>${a.skill||'Mock test'}</span><span>${a.correct??'—'}/${a.total??'—'}</span><b>${a.overall||'—'}</b></div>`).join(""):'<div class="empty">Complete a practice activity to build your history.</div>'}</div></section>`)}
-function profile(){return layout(`<div class="page-title"><div class="eyebrow">ACCOUNT</div><h1>Profile</h1><p>Set your preparation target.</p></div><div class="profile"><div class="big-avatar">${state.user.slice(0,1).toUpperCase()}</div><div><h2>${state.user}</h2><p class="muted">Demo account — Firebase connection active.</p></div></div><div class="settings"><h2>Target band</h2><p class="muted">Choose the score you are working towards.</p><select id="target">${[5.5,6,6.5,7,7.5,8,8.5,9].map(x=>`<option ${x===state.target?'selected':''}>${x}</option>`).join("")}</select><button class="btn primary" style="margin-top:12px" onclick="state.target=Number(document.getElementById('target').value);localStorage.setItem('ielts-target',state.target);alert('Target band saved.')">Save target</button></div>`)}
+function profile(){return layout(`<div class="page-title"><div class="eyebrow">ACCOUNT</div><h1>Profile</h1><p>Set your preparation target.</p></div><div class="profile"><div class="big-avatar">${state.user.slice(0,1).toUpperCase()}</div><div><h2>${state.user}</h2><p class="muted">Demo account — Firebase connection comes later.</p></div></div><div class="settings"><h2>Target band</h2><p class="muted">Choose the score you are working towards.</p><select id="target">${[5.5,6,6.5,7,7.5,8,8.5,9].map(x=>`<option ${x===state.target?'selected':''}>${x}</option>`).join("")}</select><button class="btn primary" style="margin-top:12px" onclick="state.target=Number(document.getElementById('target').value);localStorage.setItem('ielts-target',state.target);alert('Target band saved.')">Save target</button></div>`)}
 function login(){return `<div class="auth"><div class="auth-card"><div class="auth-brand"><div class="logo">I</div><h1>IELTS Prep</h1><p>Practice with purpose. Prepare with confidence.</p></div><div class="form"><label>Email<input id="email" type="email" placeholder="you@example.com"></label><label>Password<input id="pass" type="password" placeholder="••••••••"></label><div id="err"></div><button class="btn primary" onclick="doLogin()">Sign in</button></div><p class="center muted"><a href="#" onclick="showResend()">Didn't receive your verification email? Resend link</a></p><p class="center muted"><a href="#" onclick="showForgotPassword()">Forgot your password?</a></p><p class="center muted">New here? <a href="#" onclick="state.page='register';render()">Create an account</a></p></div></div>`}
 
 function register(){return `<div class="auth"><div class="auth-card"><div class="auth-brand"><div class="logo">I</div><h1>Create your account</h1><p>Start your IELTS preparation journey.</p></div><div class="form"><label>Name<input id="name" placeholder="Your name"></label><label>Email<input id="email" type="email" placeholder="you@example.com"></label><label>Password<input id="pass" type="password" placeholder="••••••••"></label><div id="err"></div><button class="btn primary" onclick="doRegister()">Create account</button></div><p class="center muted">Already have an account? <a href="#" onclick="state.page='login';render()">Sign in</a></p></div></div>`}
@@ -330,19 +351,19 @@ async function doRegister(){
   }finally{setGlobalLoading(false);}
 }
 
+// SPCK preview uses inline onclick handlers. Expose the required module values/functions.
 function bind(){
   const editor=document.getElementById("editor");
   if(editor) editor.addEventListener("input",()=>{state.writingText=editor.value;const wc=document.getElementById("wc");if(wc)wc.textContent=editor.value.trim()?editor.value.trim().split(/\s+/).length:0});
 }
 Object.assign(window, {
   state, render, nav, setGlobalLoading, showResend, showForgotPassword, doLogin, doRegister, doLogout,
-  nextStage, finishExam, submitSkill, submitWriting, toggleRecord, loadFirestoreContent,
-  playBrowserSectionAudio, stopBrowserAudio
+  nextStage, finishExam, submitSkill, submitWriting, toggleRecord, startLiveSpeaking, stopLiveSpeaking, loadFirestoreContent
 });
-
+// Authentication is intentionally session-only. Returning to the site after a page leave/reload requires a fresh login.
 state.user=null;
 sessionStorage.removeItem("ielts-user");
 render();
-
+// Invalidate the server session when the page is being left so a later visit cannot reuse it.
 window.addEventListener("pagehide",()=>{state.user=null;state.page="login";try{fetch("/api/auth",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"logout"})})}catch(e){}});
 window.addEventListener("pageshow",(event)=>{if(event.persisted){state.user=null;state.page="login";render();}});

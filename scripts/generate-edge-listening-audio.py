@@ -1,0 +1,54 @@
+name: Generate IELTS Listening Audio
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Generate MP3 files and upload them to Backblaze B2"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  generate-audio:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install audio dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-audio.txt
+
+      - name: Check required files
+        run: |
+          echo "Checking Listening bank..."
+          test -f content/listening-audio-bank.json
+
+          echo "Checking Edge-TTS generator..."
+          test -f scripts/generate-edge-listening-audio.py
+
+          echo "Required files found."
+
+      - name: Generate MP3 and upload to Backblaze B2
+        env:
+          EDGE_TTS_VOICE: en-GB-SoniaNeural
+          EDGE_TTS_RATE: -5%
+
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+          B2_REGION: eu-central-003
+          B2_S3_ENDPOINT: https://s3.eu-central-003.backblazeb2.com
+
+          UPLOAD_TO_B2: ${{ inputs.upload }}
+
+        run: |
+          python scripts/generate-edge-listening-audio.py
