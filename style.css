@@ -13,3 +13,23 @@
 .audio{background:#fff;border:1px solid #e4e9ef;border-radius:14px;padding:16px;margin:14px 0}
 .audio-controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 @media(min-width:721px){.mobile-nav{display:none!important}}
+
+/* Production mobile navigation and writing visuals */
+.mobile-menu{align-items:center;gap:7px;padding:8px 10px;border:1px solid #dce3ea;border-radius:9px;background:#fff;color:#102a43;font-weight:800;z-index:90}
+.mobile-menu span{font-size:13px}
+.mobile-nav{position:fixed;top:72px;left:12px;right:12px;z-index:100;background:#fff;border:1px solid #dce3ea;border-radius:14px;box-shadow:0 18px 45px rgba(16,42,67,.22);padding:10px}
+.mobile-nav.hidden{display:none!important}
+.mobile-nav-inner{display:grid;gap:4px}
+.mobile-nav button{width:100%;border:0;background:transparent;text-align:left;padding:13px 14px;border-radius:9px;font-weight:700;color:#31465b}
+.mobile-nav button.active{background:#edf3f8;color:#102a43}
+.mobile-nav .mobile-signout{border-top:1px solid #edf0f3;margin-top:6px;color:#a94747}
+.audio-player-wrap{width:100%;margin-top:12px}
+.audio-status{display:block;margin-top:6px;color:#d0dce6}
+.writing-visual{margin:18px 0;padding:16px;border:1px solid #dce3ea;border-radius:12px;background:#f9fbfc}
+.visual-title{font-weight:800;margin-bottom:10px}
+.visual-scroll{overflow-x:auto;background:#fff;border:1px solid #edf0f3;border-radius:9px;padding:8px}
+.visual-scroll svg{display:block;min-width:650px;width:100%;height:auto}
+.visual-note{font-size:12px;color:#718096;margin-top:8px}
+.visual-next{margin-left:8px}
+@media(max-width:720px){.mobile-menu{display:flex!important}.mobile-menu span{display:inline}.mobile-nav{top:68px}.writing-visual{padding:10px}.audio{display:block}.audio-controls{display:grid;grid-template-columns:1fr 1fr}.audio-controls .btn{width:100%}}
+@media(min-width:721px){.mobile-menu{display:none!important}.mobile-nav{display:none!important}}
