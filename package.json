@@ -8,11 +8,14 @@
     "node": ">=18.17"
   },
   "dependencies": {
-    "firebase-admin": "^13.5.0"
+    "firebase-admin": "^13.5.0",
+    "@aws-sdk/client-s3": "^3.821.0",
+    "@aws-sdk/s3-request-presigner": "^3.821.0"
   },
   "scripts": {
     "start": "vercel dev",
     "seed:firestore": "node scripts/seed-firestore.js",
-    "validate:content": "node scripts/validate-production-content.js"
+    "validate:content": "node scripts/validate-production-content.js",
+    "generate:listening-audio": "node scripts/generate-xai-listening-audio.js"
   }
 }

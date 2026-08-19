@@ -365,4 +365,5 @@ state.user=null;
 sessionStorage.removeItem("ielts-user");
 render();
 // Invalidate the server session when the page is being left so a later visit cannot reuse it.
-window.addEventListener("pagehide",()=>{try{fetch("/api/auth",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"logout"})})}catch(e){}});
+window.addEventListener("pagehide",()=>{state.user=null;state.page="login";try{fetch("/api/auth",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"logout"})})}catch(e){}});
+window.addEventListener("pageshow",(event)=>{if(event.persisted){state.user=null;state.page="login";render();}});

@@ -8,5 +8,24 @@ for(const q of questionBankQuestions){required(q,['id','testId','skill','section
 for(const t of writingTasks)required(t,['id','testType','task','prompt','minimumWords'],`writing task ${t.id||'?'}`);
 for(const s of speakingPrompts)required(s,['id','part','title'],`speaking prompt ${s.id||'?'}`);
 const seen=new Set();for(const q of questionBankQuestions){if(seen.has(q.id))errors.push(`duplicate question id ${q.id}`);seen.add(q.id)}
+
+import fs from 'fs';
+import path from 'path';
+const audioBank=JSON.parse(fs.readFileSync(path.resolve('content/listening-audio-bank.json'),'utf8'));
+const audioMap=new Map(audioBank.map(t=>[t.testId,t]));
+if(audioBank.length!==questionBankTests.length)errors.push(`audio bank has ${audioBank.length} tests; expected ${questionBankTests.length}`);
+for(const t of questionBankTests){
+  const a=audioMap.get(t.id);
+  if(!a||!Array.isArray(a.sections)||a.sections.length!==4)errors.push(`audio bank: ${t.id} must have 4 sections`);
+  for(let sec=1;sec<=4;sec++){
+    const script=a?.sections?.[sec-1]?.script||'';
+    if(!script||script.length<200)errors.push(`audio bank: ${t.id} section ${sec} script is too short`);
+    for(const q of questionBankQuestions.filter(x=>x.testId===t.id&&x.skill==='listening'&&x.section===sec)){
+      if(String(q.answer).trim() && !script.toLowerCase().includes(String(q.answer).trim().toLowerCase())) errors.push(`audio bank: answer ${q.id} not found in section ${sec}`);
+    }
+  }
+}
 if(errors.length){console.error(`Validation failed with ${errors.length} issue(s):`);errors.slice(0,100).forEach(e=>console.error('- '+e));process.exit(1)}
+console.log(`Audio validation passed: ${audioBank.length} tests, ${audioBank.length*4} section scripts, ${questionBankQuestions.filter(q=>q.skill==='listening').length} Listening questions aligned.`);
+
 console.log(`Content validation passed: ${questionBankTests.length} tests, ${questionBankQuestions.length} objective questions, ${writingTasks.length} writing tasks, ${speakingPrompts.length} speaking prompt sets.`);
