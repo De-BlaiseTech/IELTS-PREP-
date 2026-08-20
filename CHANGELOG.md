@@ -1,3 +1,12 @@
+# Changelog
+
+## 4.3.1 — Backblaze B2 Listening playback fix
+- Updated `api/listening-audio.js` to return a short-lived signed B2 URL as JSON instead of a 302 redirect.
+- Updated `app.js` to assign the signed URL directly to the native `<audio>` element instead of downloading the MP3 as a Blob.
+- Added native audio load/play/error status handling.
+- Added `ResponseContentType: audio/mpeg` and inline content disposition to the signed B2 request.
+- No xAI service is used for Listening playback.
+
 # Production 3.0 — IELTS Content, Mobile UX and Session Security
 
 - Expanded the bundled bank to 2,080 original IELTS-style objective questions (1,040 Listening + 1,040 Reading), 208 Writing tasks and 312 Speaking prompt sets.

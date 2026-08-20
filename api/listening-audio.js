@@ -77,16 +77,27 @@ export default async function handler(req, res) {
       });
     }
 
+    // Return the signed URL as JSON instead of redirecting the fetch request.
+    // The browser can then give the signed B2 URL directly to <audio>, allowing
+    // native media loading and HTTP Range requests instead of downloading the
+    // whole MP3 into a Blob first.
     const url = await getSignedUrl(
       b2,
       new GetObjectCommand({
         Bucket: bucketName,
-        Key: storagePath
+        Key: storagePath,
+        ResponseContentType: 'audio/mpeg',
+        ResponseContentDisposition: 'inline'
       }),
       { expiresIn: 3600 }
     );
 
-    return res.redirect(302, url);
+    return res.status(200).json({
+      url,
+      testId,
+      section,
+      expiresIn: 3600
+    });
   } catch (error) {
     console.error('Listening audio error:', error);
     return res.status(502).json({
