@@ -16,6 +16,6 @@
     "start": "vercel dev",
     "seed:firestore": "node scripts/seed-firestore.js",
     "validate:content": "node scripts/validate-production-content.js",
-    "generate:listening-audio": "node scripts/generate-xai-listening-audio.js"
+    "generate:listening-audio": "python scripts/generate-edge-listening-audio.py"
   }
 }
