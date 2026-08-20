@@ -17,41 +17,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          node-version: 20
+          python-version: "3.11"
 
-      - name: Check project files
+      - name: Install audio dependencies
         run: |
-          echo "Repository:"
-          pwd
-          echo ""
-          echo "Root files:"
-          ls -la
-          echo ""
-          echo "Scripts:"
-          ls -la scripts || true
-          echo ""
-          echo "Package file:"
-          ls -la package.json || true
+          python -m pip install --upgrade pip
+          pip install -r requirements-audio.txt
 
-      - name: Install dependencies
+      - name: Check required files
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          elif [ -f package.json ]; then
-            npm install
-          else
-            echo "No package.json found."
-            exit 1
-          fi
+          echo "Checking Listening bank..."
+          test -f content/listening-audio-bank.json
 
-      - name: Generate and upload IELTS Listening audio
+          echo "Checking Edge-TTS generator..."
+          test -f scripts/generate-edge-listening-audio.py
+
+          echo "Required files found."
+
+      - name: Generate MP3 and upload to Backblaze B2
         env:
-          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
-          XAI_LISTENING_VOICE: eve
-          XAI_TTS_MODEL: grok-tts
+          EDGE_TTS_VOICE: en-GB-SoniaNeural
+          EDGE_TTS_RATE: -5%
 
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
@@ -59,16 +48,7 @@ jobs:
           B2_REGION: eu-central-003
           B2_S3_ENDPOINT: https://s3.eu-central-003.backblazeb2.com
 
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-
           UPLOAD_TO_B2: ${{ inputs.upload }}
 
         run: |
-          if [ ! -f scripts/generate-xai-listening-audio.js ]; then
-            echo "ERROR: scripts/generate-xai-listening-audio.js was not found."
-            echo "Current scripts directory:"
-            ls -la scripts || true
-            exit 1
-          fi
-
-          node scripts/generate-xai-listening-audio.js
+          python scripts/generate-edge-listening-audio.py
