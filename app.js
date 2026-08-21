@@ -1,4 +1,4 @@
-import { register as apiRegister, resendVerification, login as apiLogin, logout as apiLogout, forgotPassword } from "./auth-api.js";
+Import { register as apiRegister, resendVerification, login as apiLogin, logout as apiLogout, forgotPassword } from "./auth-api.js";
 const state={
  page:"dashboard", user:null, target:Number(localStorage.getItem("ielts-target")||7.5),
  attempts:JSON.parse(localStorage.getItem("ielts-attempts")||"[]"), answers:{}, submitted:false,

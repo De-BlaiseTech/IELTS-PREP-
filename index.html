@@ -10,5 +10,25 @@
 <body>
 <div id="app"></div>
 <script type="module" src="app.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const dropdownBtn = document.getElementById('dropdownBtn');
+  const dropdownMenu = document.getElementById('dropdownMenu');
+
+  if (dropdownBtn && dropdownMenu) {
+    dropdownBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdownMenu.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', () => {
+      if (!dropdownMenu.classList.contains('hidden')) {
+        dropdownMenu.classList.add('hidden');
+      }
+    });
+  }
+});
+</script>
 </body>
 </html>
