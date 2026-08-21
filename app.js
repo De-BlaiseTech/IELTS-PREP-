@@ -1,4 +1,4 @@
-Import { register as apiRegister, resendVerification, login as apiLogin, logout as apiLogout, forgotPassword } from "./auth-api.js";
+import { register as apiRegister, resendVerification, login as apiLogin, logout as apiLogout, forgotPassword } from "./auth-api.js";
 const state={
  page:"dashboard", user:null, target:Number(localStorage.getItem("ielts-target")||7.5),
  attempts:JSON.parse(localStorage.getItem("ielts-attempts")||"[]"), answers:{}, submitted:false,
@@ -85,7 +85,20 @@ function layout(inner){
       <header class="top">
         <button class="mobile-menu" id="mobileMenuButton" aria-label="Open navigation" aria-expanded="false" onclick="toggleMenu()">☰ <span>Menu</span></button>
         <b>IELTS Practice Centre</b>
-        <div class="avatar">${(state.user||"S").slice(0,1).toUpperCase()}</div>
+        
+        <!-- Dropdown Menu Integrated Here -->
+        <div class="dropdown">
+          <button class="dropdown-toggle" id="dropdownBtn">
+            ${(state.user||"Account")} ▾
+          </button>
+          <div class="dropdown-menu hidden" id="dropdownMenu">
+            <button class="dropdown-item" onclick="nav('profile')">View Profile</button>
+            <button class="dropdown-item" onclick="nav('progress')">My Progress</button>
+            <div style="height:1px;background:#edf0f3;margin:4px 0;"></div>
+            <button class="dropdown-item danger" onclick="doLogout()">Sign Out</button>
+          </div>
+        </div>
+
       </header>
       <div class="mobile-nav hidden" id="mobileNav">
         <div class="mobile-nav-inner">
@@ -113,9 +126,6 @@ async function playListeningAudio(testId, section){
     if(status) status.textContent=`Loading Section ${section} audio…`;
     if(!player) throw new Error("Audio player is unavailable.");
 
-    // Ask our authenticated Vercel API for a short-lived signed B2 URL.
-    // Do not fetch the MP3 into a Blob: the native audio element needs to
-    // request the media itself so Range/seek/playback works correctly.
     const r=await fetch(`/api/listening-audio?testId=${encodeURIComponent(testId)}&section=${section}`,{
       credentials:"include",
       cache:"no-store",
@@ -134,8 +144,6 @@ async function playListeningAudio(testId, section){
 
     if(status) status.textContent=`Section ${section} audio is ready. Tap ▶ on the player to listen.`;
 
-    // Start playback only after the browser has loaded enough metadata.
-    // If autoplay is blocked, the controls remain available for a normal tap.
     try{
       await player.play();
       if(status) status.textContent=`Section ${section} audio is playing.`;
@@ -328,7 +336,7 @@ function cleanupLiveSpeaking(){
 }
 
 function progress(){let latest=state.attempts[0];return layout(`<div class="page-title"><div class="eyebrow">YOUR PERFORMANCE</div><h1>Progress</h1><p>Track your practice and identify where to focus next.</p></div><div class="analytics"><div class="card"><span class="muted">Target band</span><strong>${state.target}</strong></div><div class="card"><span class="muted">Attempts</span><strong>${state.attempts.length}</strong></div><div class="card"><span class="muted">Latest overall</span><strong>${latest?.overall||'—'}</strong></div></div><section class="section"><div class="heading"><h2>Skill breakdown</h2></div><div class="skill-grid">${[['Listening','listening'],['Reading','reading'],['Writing','writing'],['Speaking','speaking']].map(x=>{const band=latestSkillBand(x[1]);return `<div class="card"><b>${x[0]}</b><strong style="display:block;font-size:25px;margin-top:7px">${band??'—'}</strong><span class="bar"><i style="width:${band?band/9*100:0}%"></i></span></div>`}).join("")}</div></section><section class="section"><h2>Practice history</h2><div class="history">${state.attempts.length?state.attempts.map(a=>`<div class="history-row"><span>${a.skill||'Mock test'}</span><span>${a.correct??'—'}/${a.total??'—'}</span><b>${a.overall||'—'}</b></div>`).join(""):'<div class="empty">Complete a practice activity to build your history.</div>'}</div></section>`)}
-function profile(){return layout(`<div class="page-title"><div class="eyebrow">ACCOUNT</div><h1>Profile</h1><p>Set your preparation target.</p></div><div class="profile"><div class="big-avatar">${state.user.slice(0,1).toUpperCase()}</div><div><h2>${state.user}</h2><p class="muted">Demo account — Firebase connection comes later.</p></div></div><div class="settings"><h2>Target band</h2><p class="muted">Choose the score you are working towards.</p><select id="target">${[5.5,6,6.5,7,7.5,8,8.5,9].map(x=>`<option ${x===state.target?'selected':''}>${x}</option>`).join("")}</select><button class="btn primary" style="margin-top:12px" onclick="state.target=Number(document.getElementById('target').value);localStorage.setItem('ielts-target',state.target);alert('Target band saved.')">Save target</button></div>`)}
+function profile(){return layout(`<div class="page-title"><div class="eyebrow">ACCOUNT</div><h1>Profile</h1><p>Set your preparation target.</p></div><div class="profile"><div class="big-avatar">${(state.user||"S").slice(0,1).toUpperCase()}</div><div><h2>${state.user}</h2><p class="muted">Demo account — Firebase connection comes later.</p></div></div><div class="settings"><h2>Target band</h2><p class="muted">Choose the score you are working towards.</p><select id="target">${[5.5,6,6.5,7,7.5,8,8.5,9].map(x=>`<option ${x===state.target?'selected':''}>${x}</option>`).join("")}</select><button class="btn primary" style="margin-top:12px" onclick="state.target=Number(document.getElementById('target').value);localStorage.setItem('ielts-target',state.target);alert('Target band saved.')">Save target</button></div>`)}
 function login(){return `<div class="auth"><div class="auth-card"><div class="auth-brand"><div class="logo">I</div><h1>IELTS Prep</h1><p>Practice with purpose. Prepare with confidence.</p></div><div class="form"><label>Email<input id="email" type="email" placeholder="you@example.com"></label><label>Password<input id="pass" type="password" placeholder="••••••••"></label><div id="err"></div><button class="btn primary" onclick="doLogin()">Sign in</button></div><p class="center muted"><a href="#" onclick="showResend()">Didn't receive your verification email? Resend link</a></p><p class="center muted"><a href="#" onclick="showForgotPassword()">Forgot your password?</a></p><p class="center muted">New here? <a href="#" onclick="state.page='register';render()">Create an account</a></p></div></div>`}
 
 function register(){return `<div class="auth"><div class="auth-card"><div class="auth-brand"><div class="logo">I</div><h1>Create your account</h1><p>Start your IELTS preparation journey.</p></div><div class="form"><label>Name<input id="name" placeholder="Your name"></label><label>Email<input id="email" type="email" placeholder="you@example.com"></label><label>Password<input id="pass" type="password" placeholder="••••••••"></label><div id="err"></div><button class="btn primary" onclick="doRegister()">Create account</button></div><p class="center muted">Already have an account? <a href="#" onclick="state.page='login';render()">Sign in</a></p></div></div>`}
@@ -404,19 +412,38 @@ async function doRegister(){
   }finally{setGlobalLoading(false);}
 }
 
-// SPCK preview uses inline onclick handlers. Expose the required module values/functions.
+// Bind dropdown behaviors on every render cycle
 function bind(){
   const editor=document.getElementById("editor");
   if(editor) editor.addEventListener("input",()=>{state.writingText=editor.value;const wc=document.getElementById("wc");if(wc)wc.textContent=editor.value.trim()?editor.value.trim().split(/\s+/).length:0});
+
+  // Dropdown toggle logic
+  const dropdownBtn = document.getElementById('dropdownBtn');
+  const dropdownMenu = document.getElementById('dropdownMenu');
+
+  if (dropdownBtn && dropdownMenu) {
+    dropdownBtn.onclick = (e) => {
+      e.stopPropagation();
+      dropdownMenu.classList.toggle('hidden');
+    };
+  }
 }
+
+// Global click listener to close dropdown when clicking outside
+document.addEventListener('click', () => {
+  const dropdownMenu = document.getElementById('dropdownMenu');
+  if (dropdownMenu && !dropdownMenu.classList.contains('hidden')) {
+    dropdownMenu.classList.add('hidden');
+  }
+});
+
 Object.assign(window, {
   state, render, nav, setGlobalLoading, showResend, showForgotPassword, doLogin, doRegister, doLogout,
   nextStage, finishExam, submitSkill, submitWriting, toggleRecord, startLiveSpeaking, stopLiveSpeaking, loadFirestoreContent
 });
-// Authentication is intentionally session-only. Returning to the site after a page leave/reload requires a fresh login.
+
 state.user=null;
 sessionStorage.removeItem("ielts-user");
 render();
-// Invalidate the server session when the page is being left so a later visit cannot reuse it.
 window.addEventListener("pagehide",()=>{state.user=null;state.page="login";try{fetch("/api/auth",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"logout"})})}catch(e){}});
 window.addEventListener("pageshow",(event)=>{if(event.persisted){state.user=null;state.page="login";render();}});
